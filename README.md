@@ -1,14 +1,35 @@
+⚠️ The code has not been refactored yet; it may be a bit raw and unpolished for now.⚠️
+
 # CanvasMemories
 
 **CanvasMemories** is a prototype inspired by features such as Instagram Stories or Unfold templates. The goal is to provide a library that enables the integration of an easy-to-use editor, easily integrable for Expo users.
 
-<img src="./assets/docs/preview.jpg" alt="preview" style="width:20%;" />
+<table>
+  <tr>
+    <th style="text-align: center;">Preview of the Editor</th>
+    <th style="text-align: center;">Template of the Editor</th>
+  </tr>
+  <tr>
+    <td style="text-align: center;">
+      <img src="./assets/docs/overvew.gif" alt="Editor Preview" style="width: 50%;" />
+    </td>
+    <td style="text-align: center;">
+      <img src="./assets/docs/template.gif" alt="Editor Template" style="width: 50%;" />
+    </td>
+  </tr>
+</table>
 
 ## Project Objective
 
 Create a library that offers an intuitive editor for designing interactive stories or visual experiences. The project is designed for seamless integration into Expo applications.
 
-## Main Features
+
+## Key Features
+
+- **Customizable Templates**: Easily select and load predefined templates.
+- **Drag-and-Drop**: Move and resize elements freely on the canvas.
+- **Undo/Redo**: Seamlessly navigate through your design history.
+- **Preview Mode**: See your design without guides or helpers.
 
 ### Bottom Bar
 
@@ -40,6 +61,8 @@ Create a library that offers an intuitive editor for designing interactive stori
 - **"Publish" Action Button**  
   Triggers the action to publish the final result.
 
+
+
 ## Element Characteristics
 
 - **Element States**  
@@ -47,6 +70,18 @@ Create a library that offers an intuitive editor for designing interactive stori
 
 - **Resizing and Rotation**  
   Elements (text, stickers, images) can be resized and rotated by the user for precise positioning and adjustment.
+
+## Roadmap
+- (v1) : all basics features
+- (v1) : support french🇫🇷 & english 🏴󠁧󠁢󠁥󠁮󠁧󠁿 languages
+- (v1) : add stickers & template in a folder
+- (v1) : npm package
+- (v1) : refacto & code
+
+- (v2) Support for video elements.
+- (v2) Advanced filters and blending modes.
+- (v2) Multi-layer editing.
+- (v2) Export to multiple formats.
 
 ---
 
