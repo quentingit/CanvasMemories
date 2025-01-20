@@ -152,14 +152,14 @@ const styles = StyleSheet.create({
   publishButton: {
     backgroundColor: "red",
     borderRadius: 20,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     marginHorizontal: 5,
   },
   publishText: {
     color: "white",
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: 14,
   },
   bottomBar: {
     flexDirection: "row",

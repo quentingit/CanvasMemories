@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
   TextInput,
+  Animated,
 } from "react-native";
 
 import * as Haptics from "expo-haptics";
@@ -22,6 +23,7 @@ import {
   PinchGestureHandler,
   RotationGestureHandler,
   State,
+  TapGestureHandler,
 } from "react-native-gesture-handler";
 
 import * as ImagePicker from "expo-image-picker";
@@ -30,8 +32,10 @@ import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 // Import de ton MenuMemories (depuis le fichier où tu l'as défini)
 import MenuMemories from "./partials/MenuMemories";
 import { Slider } from "react-native-elements";
-import CenterLine from "./partials/CenterLine";
+import CenterLine from "./partials/CenterHorizontalLine";
 import { Ionicons } from "@expo/vector-icons";
+import CenterVerticalLine from "./partials/CenterHorizontalLine";
+import CenterHorizontalLine from "./partials/CenterVerticalLine";
 
 const { width, height } = Dimensions.get("window");
 const screenHeight = Dimensions.get("window").height;
@@ -63,89 +67,136 @@ const filters = [
 ];
 
 const ImageSelectionModal = ({ visible, onClose, loadTemplate }) => {
-  const categories = ["Animated", "Clasico", "Grid"];
+  const categories = ["Modern"];
   const images = [
     {
       id: 1,
-      uri: require("../../../../../assets/canvasMemories/templates/template1.jpeg"),
+      uri: require("./assets/templates/template1.jpeg"),
       label: "01",
     },
-    { id: 2, uri: "https://via.placeholder.com/750x1333", label: "02" },
+    {
+      id: 2,
+      uri: require("./assets/templates/template2.jpeg"),
+      label: "02",
+    },
     { id: 3, uri: "https://via.placeholder.com/750x1333", label: "03" },
     { id: 4, uri: "https://via.placeholder.com/750x1333", label: "04" },
     { id: 5, uri: "https://via.placeholder.com/750x1333", label: "05" },
     { id: 6, uri: "https://via.placeholder.com/750x1333", label: "06" },
   ];
 
-  const [selectedCategory, setSelectedCategory] = useState("Clasico");
+  const [selectedCategory, setSelectedCategory] = useState("Modern");
 
-  const handleLoadTemplate = () => {
-    loadTemplate();
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  // Effet pour réinitialiser translateY lorsque la modal devient visible
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 0,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  const handleGesture = Animated.event(
+    [{ nativeEvent: { translationY: translateY } }],
+    { useNativeDriver: true }
+  );
+
+  const handleStateChange = ({ nativeEvent }) => {
+    if (nativeEvent.state === State.END) {
+      if (nativeEvent.translationY > 100) {
+        // Ferme le modal si le glissement dépasse 100px
+        onClose();
+      } else {
+        // Réinitialise la position si le glissement est trop faible
+        Animated.spring(translateY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      }
+    }
+  };
+
+  const handleLoadTemplate = (index) => {
+    loadTemplate(index);
     onClose();
   };
   return (
     <Modal
-      animationType="slide"
+      animationType="fade"
       transparent={true}
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.modalTemplateOverlay}>
-        <View style={styles.modalTemplateContainer}>
-          {/* Drag handle */}
-          <View style={styles.dragHandle} />
-
-          {/* Images Grid */}
-          <ScrollView contentContainerStyle={styles.imageGrid}>
-            {images.map((image) => (
-              <TouchableOpacity
-                key={image.id}
-                style={styles.imageContainer}
-                onPress={handleLoadTemplate}
-              >
-                <Image
-                  source={require("../../../../../assets/canvasMemories/templates/template1.jpeg")}
-                  style={styles.image}
-                  resizeMode="cover"
-                />
-                <Text style={styles.imageLabel}>{image.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* Categories */}
-          <ScrollView
-            horizontal
-            contentContainerStyle={styles.categoryContainer}
-            showsHorizontalScrollIndicator={false}
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.modalTemplateOverlay}>
+          <PanGestureHandler
+            onGestureEvent={handleGesture}
+            onHandlerStateChange={handleStateChange}
           >
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category}
-                onPress={() => setSelectedCategory(category)}
-                style={[
-                  styles.categoryButton,
-                  selectedCategory === category && styles.activeCategory,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.categoryText,
-                    selectedCategory === category && styles.activeCategoryText,
-                  ]}
-                >
-                  {category.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+            <Animated.View
+              style={[
+                styles.modalTemplateContainer,
+                { transform: [{ translateY: translateY }] },
+              ]}
+            >
+              {/* Drag handle */}
+              <View style={styles.dragHandle} />
 
-          {/* Close Button */}
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.closeButtonText}>Close</Text>
-          </TouchableOpacity>
+              {/* Images Grid */}
+              <ScrollView contentContainerStyle={styles.imageGrid}>
+                {images.map((image, index) => (
+                  <TouchableOpacity
+                    key={image.id}
+                    style={styles.imageContainer}
+                    onPress={() => {
+                      handleLoadTemplate(index);
+                    }}
+                  >
+                    <Image
+                      source={image.uri}
+                      style={styles.image}
+                      resizeMode="cover"
+                    />
+                    <Text style={styles.imageLabel}>{image.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Categories */}
+              <ScrollView
+                horizontal
+                contentContainerStyle={styles.categoryContainer}
+                showsHorizontalScrollIndicator={false}
+              >
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category}
+                    onPress={() => setSelectedCategory(category)}
+                    style={[
+                      styles.categoryButton,
+                      selectedCategory === category && styles.activeCategory,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        selectedCategory === category &&
+                          styles.activeCategoryText,
+                      ]}
+                    >
+                      {category.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </Animated.View>
+          </PanGestureHandler>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
@@ -169,11 +220,13 @@ const CanvasMemories = ({ props }) => {
 
   const [currentFilter, setCurrentFilter] = useState("normal");
 
-  const [isTextCentered, setIsTextCentered] = useState(false);
+  const [isElementCenteredHorizontal, setIsElementCenteredHorizontal] =
+    useState(false);
+
+  const [isElementCenteredVertical, setIsElementCenteredVertical] =
+    useState(false);
 
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-
-  const [selectedFont, setSelectedFont] = useState("Poppins_500Medium");
 
   const [isDragging, setIsDragging] = useState(false); // Nouvel état pour savoir si on est en plein drag
 
@@ -192,7 +245,12 @@ const CanvasMemories = ({ props }) => {
   const [isHoverTrash, setIsHoverTrash] = useState(false);
   const trashLayoutRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
 
-  const availableFonts = ["Poppins_500Medium", "Poppins_400Regular_Italic"];
+  const availableFonts = [
+    "Poppins_500Medium",
+    "Poppins_400Regular_Italic",
+    "Poppins_300Light",
+    "Poppins_700Bold",
+  ];
 
   //TOOGLE
 
@@ -267,11 +325,29 @@ const CanvasMemories = ({ props }) => {
       if (!result.cancelled) {
         const selectedUri = result.assets[0].uri;
 
-        // Mise à jour de l'image dans l'élément lockedImage
-        setElements((prevElements) =>
-          prevElements.map((el) =>
-            el.id === elementId ? { ...el, source: { uri: selectedUri } } : el
-          )
+        // Récupère les dimensions de l'image
+        Image.getSize(
+          selectedUri,
+          (width, height) => {
+            setElements((prevElements) =>
+              prevElements.map((el) =>
+                el.id === elementId
+                  ? {
+                      ...el,
+                      source: { uri: selectedUri },
+                      imageWidth: width,
+                      imageHeight: height,
+                    }
+                  : el
+              )
+            );
+          },
+          (error) => {
+            console.error(
+              "Erreur lors de la récupération des dimensions :",
+              error
+            );
+          }
         );
       }
     } catch (error) {
@@ -305,11 +381,11 @@ const CanvasMemories = ({ props }) => {
     const newText = {
       id: Date.now(),
       type: "text",
-      x: width / 2 - 50,
-      y: height / 2 - 20,
+      x: screenWidth / 4,
+      y: height / 3,
       translationX: 0,
       translationY: 0,
-      text: "Mon texte",
+      text: "",
       // Échelle
       scale: 1,
       baseScale: 1, // AJOUT
@@ -325,72 +401,156 @@ const CanvasMemories = ({ props }) => {
     const newElements = [...elements, newText];
     setElements(newElements);
     saveHistory(newElements); // on enregistre dans l'historique
+
+    // Ouvre la modal de texte
+    setEditableText(newText.text);
+    setEditableTextColor(newText.color);
+    setActiveElementId(newText.id);
+    setIsEditModalVisible(true);
   };
 
-  //POUR LE SYSTEME TEMPLATE
-  const loadTemplate1 = async () => {
-    console.log("===========>load");
-    const lockedPhoto = {
-      id: Date.now(),
-      type: "lockedImage",
-      x: 25, // Espace à gauche
-      y: 25, // Espace en haut
-      translationX: 0,
-      translationY: 0,
-      source: null, // pas encore chargé => "cliquer pour charger image"
-      width: screenWidth - 50, // Largeur totale moins les marges gauche/droite
-      height: (screenWidth - 10) * (4 / 3), // Hauteur proportionnelle (4:3)
-      scale: 1,
-      baseScale: 1,
-      rotation: 0,
-      baseRotation: 0,
-      locked: true, // Propriété pour verrouiller
-    };
+  const handleTapNewText = useCallback((event) => {
+    const { x, y } = event.nativeEvent;
 
-    const titleEl = {
-      id: Date.now() + 1,
+    const newText = {
+      id: Date.now(),
       type: "text",
-      x: screenWidth / 4,
-      y: screenWidth * (4 / 3) + 10,
+      x: x - screenWidth / 4 - 10, // Centre horizontalement
+      y: y - 15, // Ajuster verticalement
       translationX: 0,
       translationY: 0,
-      text: "Mon Titre",
+      text: "",
       scale: 1,
       baseScale: 1,
       rotation: 0,
       baseRotation: 0,
       width: screenWidth / 2,
-      baseWidth: screenWidth / 2,
-      locked: false,
-      padding: 10,
-      fontFamily: "Poppins_600SemiBold",
+      color: "black",
     };
 
-    // Description
-    const descEl = {
-      id: Date.now() + 2,
-      type: "text",
-      x: 0,
-      y: screenWidth * (4 / 3) + 60,
+    setActiveElementId(newText.id);
+    // On crée le nouveau tableau d'éléments
+    setElements((prevElements) => [...prevElements, newText]);
+    saveHistory([...elements, newText]); // Sauvegarde dans l'historique
+
+    // Ouvre la modal de texte
+    setEditableText(newText.text);
+    setEditableTextColor(newText.color);
+    setIsEditModalVisible(true);
+  }, []);
+
+  //POUR LE SYSTEME TEMPLATE
+  const loadTemplate = async (index) => {
+    // Gabarit des éléments de base
+    const baseLockedImage = (id, x, y, width, height) => ({
+      id: id,
+      type: "lockedImage",
+      x: x,
+      y: y,
       translationX: 0,
       translationY: 0,
-      text: "Ceci est ma super description...",
-      scale: 0.8,
+      imageTranslationX: 0, // Déplacement horizontal de l'image
+      imageTranslationY: 0, // Déplacement vertical de l'image
+      source: null,
+      width: width,
+      height: height,
+      scale: 1,
       baseScale: 1,
       rotation: 0,
       baseRotation: 0,
-      locked: false,
-      width: screenWidth,
-      baseWidth: screenWidth,
-      padding: 10,
-      color: "black",
-      fontFamily: "Poppins_400Regular_Italic",
-    };
+      locked: true, // Propriété pour verrouiller
+    });
 
-    // On ajoute ces 3 éléments
-    const newElements = [lockedPhoto, titleEl, descEl];
+    const baseTextElement = (
+      id,
+      x,
+      y,
+      width,
+      text,
+      fontSize,
+      fontFamily,
+      locked = false
+    ) => ({
+      id: id,
+      type: "text",
+      x: x,
+      y: y,
+      translationX: 0,
+      translationY: 0,
+      text: text,
+      scale: fontSize,
+      baseScale: 1,
+      rotation: 0,
+      baseRotation: 0,
+      locked: locked,
+      width: width ?? screenWidth / 2,
+      baseWidth: width ?? screenWidth / 2,
+      padding: 10,
+      fontFamily: fontFamily,
+      color: "black",
+    });
+
+    let newElements = [];
+
+    switch (index) {
+      case 0: // Template 1
+        newElements = [
+          baseLockedImage(
+            Date.now(),
+            25,
+            25,
+            screenWidth - 50,
+            (screenWidth - 10) * (4 / 3) // Hauteur proportionnelle (4:3)
+          ),
+          baseTextElement(
+            Date.now() + 1,
+            screenWidth / 4,
+            screenWidth * (4 / 3) + 20,
+            screenWidth / 2,
+            "Mon Titre",
+            1,
+            "Poppins_600SemiBold"
+          ),
+          baseTextElement(
+            Date.now() + 2,
+            (screenWidth * (1 / 4)) / 2,
+            screenWidth * (4 / 3) + 70,
+            screenWidth * (3 / 4),
+            "Cette description peut être modifiée en cliquant dessus.",
+            0.7,
+            "Poppins_400Regular_Italic"
+          ),
+        ];
+        break;
+
+      case 1: // Template 2
+        const halfHeight = (screenWidth * (16 / 9)) / 2 - 28;
+        newElements = [
+          baseLockedImage(Date.now(), 16, 16, screenWidth - 32, halfHeight),
+          baseLockedImage(
+            Date.now() + 1,
+            16,
+            halfHeight + 32, // Placement en dessous de la première image
+            screenWidth - 32,
+            halfHeight
+          ),
+        ];
+        break;
+
+      default:
+        console.warn(`Template ${index} non défini`);
+        return;
+    }
+
+    // Appliquer les changements d'état
+    // Réinitialisation des états
     setElements(newElements);
-    saveHistory(newElements);
+    setHistory([newElements]); // Met à jour l'historique
+
+    setRedoStack([]); // Vide la pile de redo
+    setActiveElementId(null); // Aucun élément actif
+    setIsDragging(false); // Pas de drag en cours
+    setIsHoverTrash(false); // La poubelle est masquée
   };
 
   // Ajoute un sticker (image)
@@ -444,19 +604,27 @@ const CanvasMemories = ({ props }) => {
 
         if (el.locked) return el; // Si l'élément est verrouillé, on le retourne directement
 
-        // Calculer la nouvelle position et vérifier l'alignement
+        //HORIZONTAL  ALIGN
         const newX = el.x + translationX;
+        const isCenteredHorizontal =
+          Math.abs(newX + el.width / 2 - screenWidth / 2) < 5;
 
-        const isCentered = Math.abs(newX + el.width / 2 - screenWidth / 2) < 5;
-        // Détecter si le texte devient centré
-        if (isCentered && !isTextCentered) {
+        //VERTICAL ALIGN
+        const newY = el.y + translationY;
+
+        const isCenteredVertical =
+          Math.abs(newY + el.height / 2 - adjustedHeight / 2) < 5;
+
+        //HAPTICS
+        if (isCenteredHorizontal && !isElementCenteredHorizontal) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+        }
+        if (isCenteredVertical && !isElementCenteredVertical) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
         }
 
-        //const isCentered = Math.abs(newX - screenWidth / 2) < 5;
-
-        // Mettre à jour l'état de centrage
-        setIsTextCentered(isCentered);
+        setIsElementCenteredVertical(isCenteredVertical);
+        setIsElementCenteredHorizontal(isCenteredHorizontal);
 
         // Retourner l'élément mis à jour
         return { ...el, translationX, translationY };
@@ -529,6 +697,12 @@ const CanvasMemories = ({ props }) => {
       return;
     }
     if (state === State.BEGAN) {
+      // Ne pas afficher la corbeille pour les lockedImage
+      const element = elements.find((el) => el.id === id);
+      if (element && element.type === "lockedImage") {
+        return;
+      }
+
       activeElementRef.current = id;
       setActiveElementId(id);
       setIsDragging(true); // On affiche la poubelle (si on veut)
@@ -538,8 +712,10 @@ const CanvasMemories = ({ props }) => {
       activeElementRef.current = null; // Réinitialise la ref
       setActiveElementId(null);
 
-      // Réinitialise `isTextCentered` une fois que l'utilisateur relâche
-      setIsTextCentered(false);
+      // Réinitialise `isElementCenteredHorizontal` , `isElementCenteredVertical` une fois que l'utilisateur relâche
+      setIsElementCenteredHorizontal(false);
+      setIsElementCenteredVertical(false);
+
       // Réinitialise `isHoverTrash` une fois que l'utilisateur relâche
       setIsHoverTrash(false);
 
@@ -663,12 +839,30 @@ const CanvasMemories = ({ props }) => {
     onClose,
     onSave,
     text,
-    setText,
     textColor,
-    setTextColor,
+    //  setTextColor,
   }) => {
+    const [editText, setEditText] = useState(text);
+    const [selectedFont, setSelectedFont] = useState("Poppins_500Medium");
+    const [editTextColor, setEditTextColor] = useState(textColor);
+
     const handleClose = () => {
-      onSave();
+      if (!editText.trim()) {
+        // Supprime l'élément si le texte est vide
+        setElements((prevElements) =>
+          prevElements.filter((el) => el.id !== activeElementId)
+        );
+        saveHistory(
+          elements.filter((el) => el.id !== activeElementId) // Met à jour l'historique
+        );
+      } else {
+        // Sinon, sauvegarde les modifications
+        onSave({
+          text: editText,
+          font: selectedFont,
+          color: editTextColor,
+        });
+      }
       onClose();
     };
     return (
@@ -678,27 +872,33 @@ const CanvasMemories = ({ props }) => {
         visible={visible}
         onRequestClose={handleClose}
       >
-        <TouchableWithoutFeedback onPress={handleClose}>
+        <TouchableWithoutFeedback onPress={handleClose} accessible={false}>
           <View
             style={{
               flex: 1,
               justifyContent: "center",
               alignItems: "center",
-              backgroundColor: "rgba(0, 0, 0, 0.8)", // Fond sombre
+              backgroundColor: "rgba(0, 0, 0, 1)", // Fond sombre
             }}
           >
-            <View style={{ width: "100%", alignItems: "center" }}>
+            <View
+              pointerEvents="box-none" // Laisse les enfants interagir directement
+              style={{ width: "100%", alignItems: "center" }}
+            >
               <TextInput
                 style={{
-                  color: textColor,
+                  color:
+                    editTextColor === "black" || editTextColor === "#000"
+                      ? "#666"
+                      : editTextColor,
                   fontSize: 25, // Taille fixe du texte
                   textAlign: "center",
                   fontFamily: selectedFont,
                   width: "90%",
                   paddingHorizontal: 20,
                 }}
-                value={text}
-                onChangeText={setText}
+                value={editText}
+                onChangeText={setEditText}
                 placeholder="Saisis ton texte..."
                 placeholderTextColor="rgba(255, 255, 255, 0.5)"
                 autoFocus
@@ -711,10 +911,9 @@ const CanvasMemories = ({ props }) => {
               horizontal
               style={{
                 position: "absolute",
-                top: 50,
-                left: 0,
+                top: 70,
+                left: 10,
                 right: 0,
-                paddingVertical: 10,
               }}
               showsHorizontalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -753,7 +952,7 @@ const CanvasMemories = ({ props }) => {
                     //  borderWidth: textColor === color ? 2 : 0,
                     //  borderColor: "white",
                   }}
-                  onPress={() => setTextColor(color)} // Met à jour la couleur sélectionnée
+                  onPress={() => setEditTextColor(color)} // Met à jour la couleur sélectionnée
                 />
               ))}
             </ScrollView>
@@ -768,20 +967,23 @@ const CanvasMemories = ({ props }) => {
                 paddingVertical: 10,
               }}
               showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="always" // Permet de transmettre les clics
             >
               {availableFonts.map((font) => (
                 <TouchableOpacity
                   key={font}
                   style={{
                     padding: 10,
-                    marginHorizontal: 5,
+                    marginTop: 20,
+                    left: 10,
+                    marginRight: 10,
                     backgroundColor: selectedFont === font ? "#fca311" : "#333",
-                    borderRadius: 5,
+                    borderRadius: 15,
                   }}
                   onPress={() => setSelectedFont(font)}
                 >
                   <Text style={{ fontFamily: font, color: "white" }}>
-                    {font}
+                    Mon Texte
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -798,14 +1000,22 @@ const CanvasMemories = ({ props }) => {
     setIsEditModalVisible(true); // Affiche la modal
   };
 
-  const saveEditedText = () => {
+  const saveEditedText = ({
+    text,
+    font,
+    color,
+  }: {
+    text: string;
+    font: string;
+    color: string;
+  }) => {
     const updatedElements = elements.map((el) =>
       el.id === activeElementId
         ? {
             ...el,
-            text: editableText,
-            color: editableTextColor,
-            fontFamily: selectedFont,
+            text: text,
+            color: color,
+            fontFamily: font,
           }
         : el
     );
@@ -825,7 +1035,12 @@ const CanvasMemories = ({ props }) => {
         el.id === id
           ? {
               ...el,
-              width: Math.max(el.baseWidth + translationX, 50), // Empêche une largeur négative
+              width: Math.max(
+                isNaN(el.baseWidth + translationX)
+                  ? 50
+                  : el.baseWidth + translationX,
+                50
+              ), // Évite NaN.
             }
           : el
       )
@@ -854,10 +1069,22 @@ const CanvasMemories = ({ props }) => {
     setIsPreviewModalVisible(false);
   };
 
+  const [isInteractingWithLockedImage, setIsInteractingWithLockedImage] =
+    useState(false);
+
+  const handleLockedImagePressIn = () => setIsInteractingWithLockedImage(true);
+  const handleLockedImagePressOut = () =>
+    setIsInteractingWithLockedImage(false);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {isTextCentered && isDragging && <CenterLine />}
+        {isElementCenteredHorizontal && isDragging && (
+          <CenterHorizontalLine adjustedHeight={adjustedHeight} />
+        )}
+        {isElementCenteredVertical && isDragging && (
+          <CenterVerticalLine adjustedHeight={adjustedHeight} />
+        )}
 
         {/* MenuMemories en haut et en bas (via les barres) */}
         <MenuMemories
@@ -918,7 +1145,7 @@ const CanvasMemories = ({ props }) => {
         <ImageSelectionModal
           visible={isTemplateModalVisible}
           onClose={() => setIsTemplateModalVisible(false)}
-          loadTemplate={loadTemplate1}
+          loadTemplate={loadTemplate}
         />
 
         <EditTextModal
@@ -926,9 +1153,8 @@ const CanvasMemories = ({ props }) => {
           onClose={() => setIsEditModalVisible(false)}
           onSave={saveEditedText}
           text={editableText}
-          setText={setEditableText}
           textColor={editableTextColor}
-          setTextColor={setEditableTextColor}
+          //          setTextColor={setEditableTextColor}
         />
 
         <Modal
@@ -998,63 +1224,31 @@ const CanvasMemories = ({ props }) => {
           </TouchableWithoutFeedback>
         </Modal>
 
-        <RotationGestureHandler
-          ref={rotateRef}
-          simultaneousHandlers={[pinchRef, panRef]}
-          onGestureEvent={(e) => {
-            if (!activeElementRef.current) return;
-            if (activeElementId) {
-              const radians = e.nativeEvent.rotation;
-              setElements((prev) =>
-                prev.map((el) => {
-                  if (el.id !== activeElementRef.current) return el;
-                  const newRotation =
-                    el.baseRotation + (radians * 180) / Math.PI;
-                  return { ...el, rotation: newRotation };
-                })
-              );
-            }
-          }}
-          onHandlerStateChange={(event) => {
-            if (!activeElementRef.current) return;
-
-            if (event.nativeEvent.state === State.BEGAN) {
-              setElements((prev) =>
-                prev.map((el) =>
-                  el.id === activeElementRef.current
-                    ? { ...el, baseRotation: el.rotation }
-                    : el
-                )
-              );
-            } else if (
-              event.nativeEvent.state === State.END ||
-              event.nativeEvent.state === State.CANCELLED
-            ) {
-              setElements((prev) =>
-                prev.map((el) =>
-                  el.id === activeElementRef.current
-                    ? { ...el, baseRotation: el.rotation }
-                    : el
-                )
-              );
-            }
-          }}
+        <TapGestureHandler
+        // onHandlerStateChange={(event) => {
+        //   if (event.nativeEvent.state === State.ACTIVE) {
+        //     const { x, y, target } = event.nativeEvent;
+        //     handleTapNewText(event);
+        //   }
+        // }}
+        // shouldCancelWhenOutside={false} // Ne pas annuler quand on interagit avec des enfants
         >
-          <PinchGestureHandler
-            ref={pinchRef}
-            simultaneousHandlers={[panRef, rotateRef]}
-            onGestureEvent={(event) => {
+          <RotationGestureHandler
+            ref={rotateRef}
+            simultaneousHandlers={[pinchRef, panRef]}
+            onGestureEvent={(e) => {
               if (!activeElementRef.current) return;
-
-              const pinchScale = event.nativeEvent.scale;
-
-              setElements((prev) =>
-                prev.map((el) =>
-                  el.id === activeElementRef.current
-                    ? { ...el, scale: el.baseScale * pinchScale }
-                    : el
-                )
-              );
+              if (activeElementId) {
+                const radians = e.nativeEvent.rotation;
+                setElements((prev) =>
+                  prev.map((el) => {
+                    if (el.id !== activeElementRef.current) return el;
+                    const newRotation =
+                      el.baseRotation + (radians * 180) / Math.PI;
+                    return { ...el, rotation: newRotation };
+                  })
+                );
+              }
             }}
             onHandlerStateChange={(event) => {
               if (!activeElementRef.current) return;
@@ -1063,7 +1257,7 @@ const CanvasMemories = ({ props }) => {
                 setElements((prev) =>
                   prev.map((el) =>
                     el.id === activeElementRef.current
-                      ? { ...el, baseScale: el.scale }
+                      ? { ...el, baseRotation: el.rotation }
                       : el
                   )
                 );
@@ -1074,179 +1268,304 @@ const CanvasMemories = ({ props }) => {
                 setElements((prev) =>
                   prev.map((el) =>
                     el.id === activeElementRef.current
-                      ? { ...el, baseScale: el.scale }
+                      ? { ...el, baseRotation: el.rotation }
                       : el
                   )
                 );
               }
             }}
           >
-            <View
-              ref={tableRef}
-              style={{
-                //  backgroundColor: "red",
-                backgroundColor: "#fff",
-                width: screenWidth,
-                height: adjustedHeight,
-                borderRadius: 15,
-                alignSelf: "center",
-                overflow: "hidden", // Pour appliquer le border-radius uniquement visuellement
+            <PinchGestureHandler
+              ref={pinchRef}
+              simultaneousHandlers={[panRef, rotateRef]}
+              onGestureEvent={(event) => {
+                if (!activeElementRef.current) return;
+
+                const pinchScale = event.nativeEvent.scale;
+
+                setElements((prev) =>
+                  prev.map((el) =>
+                    el.id === activeElementRef.current
+                      ? { ...el, scale: el.baseScale * pinchScale }
+                      : el
+                  )
+                );
+              }}
+              onHandlerStateChange={(event) => {
+                if (!activeElementRef.current) return;
+
+                if (event.nativeEvent.state === State.BEGAN) {
+                  setElements((prev) =>
+                    prev.map((el) =>
+                      el.id === activeElementRef.current
+                        ? { ...el, baseScale: el.scale }
+                        : el
+                    )
+                  );
+                } else if (
+                  event.nativeEvent.state === State.END ||
+                  event.nativeEvent.state === State.CANCELLED
+                ) {
+                  setElements((prev) =>
+                    prev.map((el) =>
+                      el.id === activeElementRef.current
+                        ? { ...el, baseScale: el.scale }
+                        : el
+                    )
+                  );
+                }
               }}
             >
-              {backgroundMedia && (
-                <Image
-                  source={{ uri: backgroundMedia }}
-                  style={{
-                    ...StyleSheet.absoluteFillObject,
-                    resizeMode: "cover",
-                  }}
-                />
-              )}
-
-              {/* Layer pour les filtres */}
               <View
-                style={[
-                  styles.filterLayer,
-                  filters.find((f) => f.name === currentFilter)?.style,
-                ]}
-              />
-
-              {/* Affichage des éléments (textes + stickers) */}
-              {elements.map((el) => {
-                const {
-                  id,
-                  type,
-                  x,
-                  y,
-                  translationX,
-                  translationY,
-                  scale,
-                  rotation,
-                } = el;
-                const finalX = x + translationX;
-                const finalY = y + translationY;
-
-                return (
-                  <PanGestureHandler
-                    ref={panRef}
-                    simultaneousHandlers={[pinchRef, rotateRef]}
-                    onGestureEvent={(e) => handleGestureEvent(e, id)}
-                    onHandlerStateChange={(e) => {
-                      handleGestureStateChange(e, id);
-                      if (e.nativeEvent.state === State.BEGAN) {
-                        setActiveElementId(id); // Actif dès qu'on commence à bouger l'élément
-                      }
+                ref={tableRef}
+                style={{
+                  //  backgroundColor: "red",
+                  backgroundColor: "#fff",
+                  width: screenWidth,
+                  height: adjustedHeight,
+                  borderRadius: 15,
+                  alignSelf: "center",
+                  overflow: "hidden", // Pour appliquer le border-radius uniquement visuellement
+                }}
+              >
+                {backgroundMedia && (
+                  <Image
+                    source={{ uri: backgroundMedia }}
+                    style={{
+                      ...StyleSheet.absoluteFillObject,
+                      resizeMode: "cover",
                     }}
-                  >
-                    <View
+                  />
+                )}
+
+                {/* Layer pour les filtres */}
+                <View
+                  style={[
+                    styles.filterLayer,
+                    filters.find((f) => f.name === currentFilter)?.style,
+                  ]}
+                />
+
+                {/* Affichage des éléments (textes + stickers) */}
+                {elements.map((el) => {
+                  const {
+                    id,
+                    type,
+                    x,
+                    y,
+                    translationX,
+                    translationY,
+                    scale,
+                    rotation,
+                  } = el;
+                  const finalX = x + translationX;
+                  const finalY = y + translationY;
+
+                  return (
+                    <PanGestureHandler
                       key={id}
-                      style={[
-                        styles.elementContainer,
-                        {
-                          transform: [
-                            { translateX: finalX },
-                            { translateY: finalY },
-                            { scale: scale },
-                            { rotate: `${rotation}deg` },
-                          ],
-
-                          position: "absolute",
-                          left: 0,
-                          top: 0,
-
-                          borderWidth:
-                            translationX !== 0 || translationY !== 0 ? 3 : 3, // plus large
-                          borderColor:
-                            (translationX !== 0 || translationY !== 0) &&
-                            advancedMode
-                              ? "rgba(128, 128, 128, 0.8)" // un peu plus opaque
-                              : "transparent",
-                          borderStyle: "dotted",
-                          borderRadius: 10, // Coins arrondis si nécessaire
-                        },
-                      ]}
+                      ref={panRef}
+                      simultaneousHandlers={[pinchRef, rotateRef]}
+                      onGestureEvent={(e) => handleGestureEvent(e, id)}
+                      onHandlerStateChange={(e) => {
+                        handleGestureStateChange(e, id);
+                        if (e.nativeEvent.state === State.BEGAN) {
+                          setActiveElementId(id); // Actif dès qu'on commence à bouger l'élément
+                        }
+                      }}
                     >
-                      {/* Si c'est un texte */}
-                      {type === "text" && (
-                        <TouchableOpacity
-                          style={{
-                            width: el.width,
-                            paddingHorizontal: el.padding,
-                            justifyContent: "center",
-                            alignItems: "center",
-                            position: "relative", // Nécessaire pour positionner le bouton
-                          }}
-                          onPress={() => {
-                            openEditModal(el.text, el.color);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.textContent,
-                              {
-                                fontSize: 25 * el.scale, // Taille du texte ajustée
-                                color: el.color ?? "black",
-                                textAlign: "center",
-                                fontFamily: el.fontFamily,
-                              },
-                            ]}
-                          >
-                            {el.text}
-                          </Text>
-                          {/* Bouton de redimensionnement : mode avancé*/}
-                          {advancedMode && (
-                            <PanGestureHandler
-                              onGestureEvent={(event) =>
-                                handleResizeGesture(event, el.id)
-                              }
-                              onHandlerStateChange={(event) =>
-                                handleResizeStateChange(event, el.id)
-                              }
-                            >
-                              <View style={styles.resizeHandle} />
-                            </PanGestureHandler>
-                          )}
-                        </TouchableOpacity>
-                      )}
+                      <View
+                        key={id}
+                        style={[
+                          styles.elementContainer,
+                          {
+                            transform: [
+                              { translateX: finalX },
+                              { translateY: finalY },
+                              { scale: scale },
+                              { rotate: `${rotation}deg` },
+                            ],
 
-                      {/* Si c'est un sticker (image) */}
-                      {type === "sticker" && (
-                        <Image
-                          source={el.source}
-                          style={{
-                            width: el.width,
-                            height: el.height,
-                            resizeMode: "contain",
-                          }}
-                        />
-                      )}
-
-                      {type === "lockedImage" && (
-                        <View
-                          style={{
                             position: "absolute",
-                            left: 0,
-                            top: 0,
-                            width: screenWidth,
-                            height: screenHeight,
-                            backgroundColor: "transparent",
-                          }}
-                        >
-                          {el.source ? (
-                            <Image
-                              source={el.source}
-                              style={{
-                                width: el.width,
-                                height: el.height,
 
-                                resizeMode: "cover",
-                              }}
-                            />
-                          ) : (
-                            <TouchableOpacity
-                              onPress={() => pickMediaElement(el.id)} // Appel de pickMediaElement avec l'ID de l'élément
-                              style={{}}
+                            // borderWidth:
+                            //   translationX !== 0 || translationY !== 0 ? 3 : 3, // plus large
+
+                            // borderColor:
+                            //   (translationX !== 0 || translationY !== 0) &&
+                            //   advancedMode
+                            //     ? "rgba(128, 128, 128, 0.8)" // un peu plus opaque
+                            //     : "transparent",
+
+                            left: advancedMode ? -1 : 0,
+                            top: advancedMode ? -1 : 0,
+                            borderWidth: advancedMode ? 1 : 0,
+                            borderColor: advancedMode
+                              ? "rgba(128, 128, 128, 0.8)"
+                              : "transparent",
+
+                            borderStyle: "dotted",
+                            borderRadius: 10, // Coins arrondis si nécessaire
+                          },
+                        ]}
+                      >
+                        {/* Si c'est un texte */}
+                        {type === "text" && (
+                          <TouchableOpacity
+                            style={{
+                              width: el.width,
+                              paddingHorizontal: el.padding,
+                              justifyContent: "center",
+                              alignItems: "center",
+                              position: "relative", // Nécessaire pour positionner le bouton
+                            }}
+                            onPress={() => {
+                              openEditModal(el.text, el.color);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.textContent,
+                                {
+                                  fontSize: 25 * el.scale, // Taille du texte ajustée
+                                  color: el.color ?? "black",
+                                  textAlign: "center",
+                                  fontFamily: el.fontFamily,
+                                },
+                              ]}
                             >
+                              {el.text}
+                            </Text>
+                            {/* Bouton de redimensionnement : mode avancé*/}
+                            {advancedMode && (
+                              <PanGestureHandler
+                                onGestureEvent={(event) =>
+                                  handleResizeGesture(event, el.id)
+                                }
+                                onHandlerStateChange={(event) =>
+                                  handleResizeStateChange(event, el.id)
+                                }
+                              >
+                                <View
+                                  style={[
+                                    styles.resizeHandle,
+                                    {
+                                      justifyContent: "center",
+                                      alignItems: "center",
+                                    },
+                                  ]}
+                                >
+                                  {/* Icône de redimensionnement */}
+                                  <Ionicons
+                                    name="resize-outline" // Icône de redimensionnement
+                                    size={18} // Taille de l'icône
+                                    color="white" // Couleur de l'icône
+                                    style={{
+                                      transform: [{ rotate: "45deg" }], // Rotation de 45 degrés
+                                    }}
+                                  />
+                                </View>
+                              </PanGestureHandler>
+                            )}
+                          </TouchableOpacity>
+                        )}
+
+                        {/* Si c'est un sticker (image) */}
+                        {type === "sticker" && (
+                          <Image
+                            source={el.source}
+                            style={{
+                              width: el.width,
+                              height: el.height,
+                              resizeMode: "contain",
+                            }}
+                          />
+                        )}
+
+                        {type === "lockedImage" && (
+                          <TouchableOpacity
+                            onPressIn={handleLockedImagePressIn}
+                            onPressOut={handleLockedImagePressOut}
+                            onPress={() => pickMediaElement(el.id)} // Appel de pickMediaElement avec l'ID de l'élément
+                            style={{
+                              position: "absolute",
+                              left: 0,
+                              top: 0,
+                              width: el.width,
+                              height: el.height,
+                              backgroundColor: "transparent",
+                              overflow: "hidden", // Empêche l’image de dépasser visuellement le cadre
+                            }}
+                          >
+                            {el.source ? (
+                              <PanGestureHandler
+                                onGestureEvent={(event) => {
+                                  const { translationX, translationY } =
+                                    event.nativeEvent;
+
+                                  // Met à jour les déplacements dans les limites du cadre
+                                  setElements((prevElements) =>
+                                    prevElements.map((elem) => {
+                                      if (elem.id === el.id) {
+                                        // Calcul des limites
+
+                                        const maxY = 0; // Bord supérieur
+                                        const minY =
+                                          elem.height - elem.height * 1.5; // Bord inférieur
+
+                                        return {
+                                          ...elem,
+                                          imageTranslationY: Math.max(
+                                            Math.min(
+                                              (elem.imageTranslationY || 0) +
+                                                translationY,
+                                              maxY
+                                            ),
+                                            minY
+                                          ),
+                                        };
+                                      }
+                                      return elem;
+                                    })
+                                  );
+                                }}
+                                onHandlerStateChange={(event) => {
+                                  if (
+                                    event.nativeEvent.state === State.END ||
+                                    event.nativeEvent.state === State.CANCELLED
+                                  ) {
+                                    // Fixe la position finale
+                                    setElements((prevElements) =>
+                                      prevElements.map((elem) =>
+                                        elem.id === el.id
+                                          ? {
+                                              ...elem,
+                                              baseImageTranslationY:
+                                                elem.imageTranslationY || 0,
+                                            }
+                                          : elem
+                                      )
+                                    );
+                                  }
+                                }}
+                              >
+                                <Animated.Image
+                                  source={el.source}
+                                  style={{
+                                    width: el.width,
+                                    height:
+                                      el.imageHeight && el.imageWidth
+                                        ? el.width *
+                                          (el.imageHeight / el.imageWidth)
+                                        : el.height,
+                                    transform: [
+                                      { translateY: el.imageTranslationY || 0 },
+                                    ],
+                                    resizeMode: "cover",
+                                  }}
+                                />
+                              </PanGestureHandler>
+                            ) : (
                               <View
                                 style={{
                                   ...styles.placeholder,
@@ -1256,27 +1575,36 @@ const CanvasMemories = ({ props }) => {
                                   borderColor: "#ddd",
                                   justifyContent: "center",
                                   backgroundColor: "#fafafa",
+                                  alignItems: "center",
                                 }}
                               >
+                                <Ionicons
+                                  name="image-outline"
+                                  size={40}
+                                  color="#888"
+                                />
                                 <Text
                                   style={{
                                     textAlign: "center",
+                                    color: "#888", // Couleur du texte gris clair pour correspondre à l'icône
+                                    marginTop: 5,
+                                    fontSize: 16,
                                   }}
                                 >
-                                  + Cliquer pour charger image
+                                  + Ajouter Image
                                 </Text>
                               </View>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  </PanGestureHandler>
-                );
-              })}
-            </View>
-          </PinchGestureHandler>
-        </RotationGestureHandler>
+                            )}
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </PanGestureHandler>
+                  );
+                })}
+              </View>
+            </PinchGestureHandler>
+          </RotationGestureHandler>
+        </TapGestureHandler>
       </View>
     </SafeAreaView>
   );
@@ -1335,8 +1663,8 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   successModalIconContainer: {
-    width: 40,
-    height: 40,
+    width: 25,
+    height: 25,
     backgroundColor: "#4CAF50",
     borderRadius: 20,
     justifyContent: "center",
@@ -1345,11 +1673,11 @@ const styles = StyleSheet.create({
   },
   successModalCheck: {
     color: "white",
-    fontSize: 24,
+    fontSize: 20,
   },
   successModalText: {
     color: "white",
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: "600", // ou "bold" si tu préfères
   },
   filterLayer: {
@@ -1456,7 +1784,7 @@ const styles = StyleSheet.create({
   //trash button
   trashContainer: {
     position: "absolute",
-    bottom: 100,
+    bottom: 70,
     alignSelf: "center",
     padding: 10,
     justifyContent: "center",
@@ -1487,7 +1815,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalTemplateContainer: {
-    height: screenHeight * 0.9, // Modal height 90% of the screen
+    height: screenHeight * 0.8, // Modal height 90% of the screen
     backgroundColor: "#000",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -1514,8 +1842,8 @@ const styles = StyleSheet.create({
   },
   image: {
     width: "100%",
-    height: ((screenWidth - (30 + 40)) * (16 / 9)) / 2,
-    borderRadius: 10,
+    height: ((screenWidth - 60) * (16 / 9)) / 2,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: "white",
   },
@@ -1526,13 +1854,13 @@ const styles = StyleSheet.create({
   },
   categoryContainer: {
     flexDirection: "row",
-    justifyContent: "center",
-    paddingVertical: 10,
-    backgroundColor: "#222",
+    marginVertical: 10,
+    height: 60,
   },
   categoryButton: {
     paddingHorizontal: 15,
-    paddingVertical: 8,
+    height: 30,
+    justifyContent: "center",
     borderRadius: 20,
     marginHorizontal: 5,
     backgroundColor: "#333",
@@ -1563,14 +1891,16 @@ const styles = StyleSheet.create({
 
   //resizeHandle
   resizeHandle: {
-    width: 20,
-    height: 20,
-    backgroundColor: "black", // Couleur du bouton
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    backgroundColor: "rgba(0, 0, 0, 0.7)", // Fond semi-transparent
+    borderRadius: 15,
     position: "absolute",
-    right: -15, // Positionne à droite de l'élément
-    top: "50%", // Centré verticalement
     transform: [{ translateY: -10 }], // Ajuste la position pour le centrer
+    right: -20, // Décalage par rapport à l'élément
+    top: "50%",
+    justifyContent: "center",
+    alignItems: "center", // Centre l'icône
   },
 
   //MODAL PREVIEW
